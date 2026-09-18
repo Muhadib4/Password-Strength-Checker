@@ -26,6 +26,8 @@ import {
 import { analyzePassword } from "@/lib/password/analyze";
 import { generatePassword, generatePassphrase } from "@/lib/password/generators";
 import type { GeneratorOptions, PassphraseOptions, PasswordAnalysis } from "@/lib/password/types";
+import { transformMethods, transformPassword } from "@/lib/password/transforms";
+import type { TransformMethod, TransformMode } from "@/lib/password/transforms";
 
 const strengthColors: Record<PasswordAnalysis["strength"], string> = {
   weak: "#fb7185",
@@ -98,9 +100,13 @@ export default function Home() {
   });
   const [generated, setGenerated] = useState("");
   const [generatedCopy, setGeneratedCopy] = useState(false);
+  const [transformMethod, setTransformMethod] = useState<TransformMethod>("shift-1");
+  const [transformMode, setTransformMode] = useState<TransformMode>("encode");
+  const [transformCopy, setTransformCopy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const analysis = useMemo(() => analyzePassword(password), [password]);
   const generatedAnalysis = useMemo(() => analyzePassword(generated), [generated]);
+  const transformed = useMemo(() => transformPassword(password, transformMethod, transformMode), [password, transformMethod, transformMode]);
 
   useEffect(() => {
     document.title = "Password Strength Checker — Local Security Lab";
@@ -138,6 +144,14 @@ export default function Home() {
     }
   };
 
+  const handleTransformCopy = async () => {
+    const success = await copyText(transformed);
+    if (success) {
+      setTransformCopy(true);
+      window.setTimeout(() => setTransformCopy(false), 1800);
+    }
+  };
+
   return (
     <div className={`app-shell theme-${theme}`}>
       <div className="ambient ambient-one" />
@@ -149,6 +163,7 @@ export default function Home() {
         </a>
         <nav className={`main-nav ${mobileOpen ? "nav-open" : ""}`} aria-label="Primary navigation">
           <a className="active" href="#checker" onClick={() => setMobileOpen(false)}>Checker</a>
+          <a href="#transform" onClick={() => setMobileOpen(false)}>Transform</a>
           <a href="#generator" onClick={() => setMobileOpen(false)}>Generator</a>
           <a href="#learn" onClick={() => setMobileOpen(false)}>Learn</a>
         </nav>
@@ -257,6 +272,17 @@ export default function Home() {
             <section className="section-wrap anatomy-section"><div className="anatomy-header"><div><span className="eyebrow">06 / COMPOSITION MAP</span><h2>Password anatomy</h2><p>Abstracted categories only — your actual characters are never repeated in the analysis.</p></div><span className="unique-stat"><strong>{new Set([...password]).size}</strong> unique characters</span></div><div className="anatomy-visual">{analysis.anatomy.map((type, index) => <span key={`${type}-${index}`} className="anatomy-block" style={{ background: anatomyColors[type] }} title={type} />)}</div><div className="legend">{Object.entries(anatomyColors).map(([type, color]) => analysis.counts[type as keyof typeof analysis.counts] > 0 && <span key={type}><i style={{ background: color }} />{type}</span>)}</div></section>
           </>
         )}
+
+        <section className="section-wrap transform-section" id="transform">
+          <div className="transform-intro"><span className="eyebrow">TOOLS / TRANSFORM LAB</span><h2>Ubah bentuk password-mu.</h2><p>Ketik password di checker, lalu coba transformasi yang bisa dibalik seperti Caesar shift, ROT13, Atbash, atau Base64.</p><span className="transform-warning"><TriangleAlert size={14} /> Ini obfuscation edukatif, bukan enkripsi aman.</span></div>
+          <div className="transform-card glass-card">
+            <div className="transform-toolbar"><div><span className="eyebrow">REVERSIBLE TRANSFORM</span><h3>{transformMode === "encode" ? "Encode / ubah" : "Decode / kembalikan"}</h3></div><div className="mode-toggle" role="group" aria-label="Transform mode"><button type="button" className={transformMode === "encode" ? "active" : ""} onClick={() => setTransformMode("encode")}>Encode</button><button type="button" className={transformMode === "decode" ? "active" : ""} onClick={() => setTransformMode("decode")}>Decode</button></div></div>
+            <label className="transform-field-label" htmlFor="transform-method">Metode transformasi</label>
+            <select id="transform-method" className="transform-select" value={transformMethod} onChange={(event) => setTransformMethod(event.target.value as TransformMethod)}>{transformMethods.map((method) => <option key={method.value} value={method.value}>{method.label} — {method.description}</option>)}</select>
+            <div className="transform-flow"><div className="transform-value"><span className="transform-caption">INPUT DARI CHECKER</span><code>{password || "Ketik password di atas…"}</code></div><ArrowRight className="transform-arrow" size={18} /><div className="transform-value output"><span className="transform-caption">HASIL {transformMode.toUpperCase()}</span><code>{transformed || "Belum ada hasil"}</code><button type="button" className="transform-copy" onClick={handleTransformCopy} disabled={!transformed} aria-label="Salin hasil transformasi">{transformCopy ? <Check size={15} /> : <Copy size={15} />}</button></div></div>
+            <div className="transform-note"><LockKeyhole size={13} /> Nilai hanya berada di memori halaman ini dan tidak disimpan.</div>
+          </div>
+        </section>
 
         <section className="section-wrap generator-section" id="generator">
           <div className="generator-intro"><span className="eyebrow">TOOLS / LOCAL GENERATION</span><h2>Make a stronger credential.</h2><p>Generate high-entropy passwords or memorable passphrases with cryptographically secure randomness. Nothing is saved.</p><div className="generator-safety"><LockKeyhole size={15} /><span>Web Crypto API</span><span className="divider" /><span>Generated locally</span></div></div>
